@@ -36,23 +36,33 @@ const ViewResults: React.FC = () => {
   };
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Handle OAuth callback - check for hash fragments from redirect
+    const handleAuthCallback = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error getting session:', error);
+        setIsLoading(false);
+        return;
+      }
+
       if (session?.user) {
         setUser(session.user);
-        checkEmailAuthorization(session.user.email || '');
+        await checkEmailAuthorization(session.user.email || '');
       }
       setIsLoading(false);
-    });
+    };
+
+    handleAuthCallback();
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user);
-        checkEmailAuthorization(session.user.email || '');
-      } else {
+        await checkEmailAuthorization(session.user.email || '');
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setIsAuthorized(false);
         setUserName(null);
@@ -94,16 +104,21 @@ const ViewResults: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Use the current origin for redirect (works for both localhost and production)
+      // Vercel will automatically use the correct production URL
+      const redirectUrl = window.location.origin + '/view';
+      
+      const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/view`,
+          redirectTo: redirectUrl,
           queryParams: {
             prompt: 'select_account', // Force Google to show account picker every time
             access_type: 'offline',
           },
         },
       });
+      
       if (error) {
         if (error.message?.includes('not enabled') || error.message?.includes('Unsupported provider')) {
           toast({
@@ -115,6 +130,8 @@ const ViewResults: React.FC = () => {
           throw error;
         }
       }
+      // The OAuth flow will redirect the user to Google, then back to /view
+      // No need to do anything else here - the redirect happens automatically
     } catch (error: any) {
       toast({
         title: "Login failed",
