@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Gift, Users, Shuffle, Plus, Sparkles, TreePine, ChevronDown, LogOut, Shield } from "lucide-react";
+import { Gift, Users, Shuffle, Plus, Sparkles, TreePine, ChevronDown, LogOut, Shield, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Snowfall } from "@/components/Snowfall";
@@ -47,6 +47,10 @@ const Index = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [authorizedEmails, setAuthorizedEmails] = useState<{ email: string; name: string }[]>([]);
+  const [newEmail, setNewEmail] = useState("");
+  const [newEmailName, setNewEmailName] = useState("");
+  const [showEmailManagement, setShowEmailManagement] = useState(false);
   const { toast } = useToast();
   const { isAdmin, isAuthenticated, logout, changePassword } = useAuth();
   const navigate = useNavigate();
@@ -61,10 +65,11 @@ const Index = () => {
   // Load saved assignments from Supabase
   useEffect(() => {
     const loadData = async () => {
-      const [assignmentsData, participantsData, viewerLogData] = await Promise.all([
+      const [assignmentsData, participantsData, viewerLogData, emailsData] = await Promise.all([
         database.getAssignments(),
         database.getParticipants(),
         database.getViewerLog(),
+        database.getAuthorizedEmails(),
       ]);
       
       if (assignmentsData.length > 0) {
@@ -75,6 +80,9 @@ const Index = () => {
       }
       if (viewerLogData.length > 0) {
         setViewerLog(viewerLogData);
+      }
+      if (emailsData.length > 0) {
+        setAuthorizedEmails(emailsData);
       }
     };
     
@@ -177,7 +185,7 @@ const Index = () => {
     navigate('/login');
   };
 
-  const handlePasswordUpdate = (event: React.FormEvent) => {
+  const handlePasswordUpdate = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!currentPassword.trim() || !newPassword.trim()) {
@@ -199,12 +207,12 @@ const Index = () => {
     }
 
     setIsUpdatingPassword(true);
-    setTimeout(() => {
-      const success = changePassword(currentPassword, newPassword);
+    try {
+      const success = await changePassword(currentPassword, newPassword);
       if (success) {
         toast({
           title: "Password updated",
-          description: "Your admin password has been changed.",
+          description: "Your admin password has been changed and synced across all devices.",
         });
         setCurrentPassword("");
         setNewPassword("");
@@ -216,8 +224,15 @@ const Index = () => {
           variant: "destructive",
         });
       }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred while updating the password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsUpdatingPassword(false);
-    }, 300);
+    }
   };
 
   const sortedViewerLog = [...viewerLog].sort(
@@ -281,6 +296,139 @@ const Index = () => {
                 </h2>
               </div>
               <CSVUpload onUpload={handleCSVUpload} />
+            </section>
+          )}
+
+          {/* Authorized Emails Management - Admin Only */}
+          {isAdmin && (
+            <section className="bg-card rounded-3xl shadow-festive p-6 sm:p-8 border border-border/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <Mail className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-display font-semibold text-foreground">
+                    Authorized Emails
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Manage emails that can login via Google Auth
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEmailManagement(!showEmailManagement)}
+                >
+                  {showEmailManagement ? 'Hide' : 'Show'} Management
+                </Button>
+              </div>
+
+              {showEmailManagement && (
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <Input
+                      type="email"
+                      placeholder="Email address"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="Participant name"
+                      value={newEmailName}
+                      onChange={(e) => setNewEmailName(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="festive"
+                      onClick={async () => {
+                        if (!newEmail.trim() || !newEmailName.trim()) {
+                          toast({
+                            title: "Fields required",
+                            description: "Please enter both email and name.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        // Check if email already exists in local state
+                        const emailLower = newEmail.toLowerCase();
+                        const existingEmail = authorizedEmails.find(e => e.email.toLowerCase() === emailLower);
+                        
+                        if (existingEmail) {
+                          toast({
+                            title: "Email already exists",
+                            description: `${newEmail} is already in the authorized list.`,
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        const result = await database.addAuthorizedEmail(newEmail, newEmailName);
+                        if (result.success) {
+                          // Reload emails from database to get updated list
+                          const updatedEmails = await database.getAuthorizedEmails();
+                          setAuthorizedEmails(updatedEmails);
+                          setNewEmail("");
+                          setNewEmailName("");
+                          toast({
+                            title: "Email added",
+                            description: `${newEmail} has been authorized.`,
+                          });
+                        } else {
+                          toast({
+                            title: "Error",
+                            description: result.message || "Failed to add email. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={!newEmail.trim() || !newEmailName.trim()}
+                    >
+                      <Plus className="h-5 w-5" />
+                      Add
+                    </Button>
+                  </div>
+
+                  {authorizedEmails.length > 0 ? (
+                    <div className="space-y-2">
+                      {authorizedEmails.map((item) => (
+                        <div
+                          key={item.email}
+                          className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/40"
+                        >
+                          <div>
+                            <p className="font-medium text-foreground">{item.email}</p>
+                            <p className="text-sm text-muted-foreground">Name: {item.name}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              const success = await database.removeAuthorizedEmail(item.email);
+                              if (success) {
+                                setAuthorizedEmails(authorizedEmails.filter(e => e.email !== item.email));
+                                toast({
+                                  title: "Email removed",
+                                  description: `${item.email} has been removed.`,
+                                });
+                              }
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Mail className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                      <p>No authorized emails yet.</p>
+                      <p className="text-sm mt-2">Add emails to enable Google Auth login.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           )}
 

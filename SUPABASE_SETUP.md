@@ -35,8 +35,65 @@ After setting up:
 2. All data will persist across devices and browsers
 3. Multiple users can access the same Secret Santa assignments
 
+## 4. Configure Google OAuth in Supabase
+
+To enable Google authentication:
+
+### Step 1: Create Google OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Navigate to **APIs & Services** → **Credentials**
+4. Click **Create Credentials** → **OAuth client ID**
+5. If prompted, configure the OAuth consent screen:
+   - Choose "External" user type
+   - Fill in app name, user support email, and developer contact
+   - Add scopes: `email`, `profile`
+   - Add test users (if in testing mode)
+6. Create OAuth 2.0 Client ID:
+   - Application type: **Web application**
+   - Name: "Secret Santa App" (or any name)
+   - Authorized redirect URIs: 
+     - `https://xzhrepiwlthlhetzjygj.supabase.co/auth/v1/callback`
+     - `http://localhost:5173/auth/v1/callback` (for local development)
+7. Copy the **Client ID** and **Client Secret**
+
+### Step 2: Enable Google Provider in Supabase
+
+1. Go to your Supabase Dashboard: https://supabase.com/dashboard
+2. Select your project: `xzhrepiwlthlhetzjygj`
+3. Navigate to **Authentication** → **Providers**
+4. Find **Google** in the list and click to expand
+5. Toggle **Enable Google provider**
+6. Enter your Google OAuth credentials:
+   - **Client ID (for OAuth)**: Paste your Google Client ID
+   - **Client Secret (for OAuth)**: Paste your Google Client Secret
+7. Click **Save**
+
+### Step 3: Verify Configuration
+
+1. The redirect URI should automatically be set to: `https://xzhrepiwlthlhetzjygj.supabase.co/auth/v1/callback`
+2. Make sure this matches exactly in your Google Cloud Console
+3. Test the login by clicking "Sign in with Google" in your app
+
+### Troubleshooting
+
+- **Error: "provider is not enabled"**: Make sure you toggled "Enable Google provider" in Supabase
+- **Error: "redirect_uri_mismatch"**: Check that the redirect URI in Google Console matches exactly
+- **Error: "invalid_client"**: Verify your Client ID and Secret are correct
+
+## 5. Add Authorized Emails (Admin)
+
+After logging in as admin:
+1. Go to the "Authorized Emails" section
+2. Click "Show Management"
+3. Add email addresses and their corresponding participant names
+4. Only these emails will be able to login via Google Auth
+
 ## Notes
 
 - The database uses Row Level Security (RLS) with public read/write access
 - You may want to restrict access based on your security requirements
 - The app will fall back gracefully if Supabase is unavailable (though data won't persist)
+- Users can still use manual name entry if their email is not authorized
+
