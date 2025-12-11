@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Gift, Lock, Eye } from 'lucide-react';
+import { Lock, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Snowfall } from '@/components/Snowfall';
 
@@ -48,14 +48,16 @@ const Login: React.FC = () => {
       
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-christmas-red rounded-full mb-4 shadow-lg">
-            <Gift className="w-10 h-10 text-christmas-snow" />
-          </div>
+          <img
+            src="/Stance-christmas-logo.png"
+            alt="Stance's Secret Santa"
+            className="w-24 h-24 rounded-full object-cover mb-4 shadow-lg mx-auto"
+          />
           <h1 className="text-4xl font-display font-bold text-christmas-snow mb-2">
-            Secret Santa
+            Stance&apos;s Secret Santa
           </h1>
           <p className="text-christmas-gold font-medium">
-            🎄 Gift Exchange Generator 🎄
+            🎄 Gift Exchange Headquarters 🎄
           </p>
         </div>
 

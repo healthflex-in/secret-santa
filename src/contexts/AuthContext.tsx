@@ -5,19 +5,26 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (password: string) => boolean;
   logout: () => void;
+  changePassword: (currentPassword: string, newPassword: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Admin password - in production, this should be an environment variable
-const ADMIN_PASSWORD = 'secretsanta2024';
+const DEFAULT_ADMIN_PASSWORD = 'secretsanta2024';
+const PASSWORD_STORAGE_KEY = 'secretsanta_admin_password';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [adminPassword, setAdminPassword] = useState(DEFAULT_ADMIN_PASSWORD);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check if user was previously authenticated
+    // Load persisted password and auth state
+    const storedPassword = localStorage.getItem(PASSWORD_STORAGE_KEY);
+    if (storedPassword) {
+      setAdminPassword(storedPassword);
+    }
+
     const storedAuth = sessionStorage.getItem('secretsanta_admin');
     if (storedAuth === 'true') {
       setIsAdmin(true);
@@ -26,7 +33,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = (password: string): boolean => {
-    if (password === ADMIN_PASSWORD) {
+    if (password === adminPassword) {
       setIsAdmin(true);
       setIsAuthenticated(true);
       sessionStorage.setItem('secretsanta_admin', 'true');
@@ -41,8 +48,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     sessionStorage.removeItem('secretsanta_admin');
   };
 
+  const changePassword = (currentPassword: string, newPassword: string): boolean => {
+    if (currentPassword !== adminPassword || !newPassword) {
+      return false;
+    }
+
+    setAdminPassword(newPassword);
+    localStorage.setItem(PASSWORD_STORAGE_KEY, newPassword);
+    setIsAdmin(true);
+    setIsAuthenticated(true);
+    sessionStorage.setItem('secretsanta_admin', 'true');
+    return true;
+  };
+
   return (
-    <AuthContext.Provider value={{ isAdmin, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAdmin, isAuthenticated, login, logout, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

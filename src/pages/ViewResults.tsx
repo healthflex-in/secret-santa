@@ -6,9 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Gift, Search, ArrowLeft, PartyPopper } from 'lucide-react';
 import { Snowfall } from '@/components/Snowfall';
 
+const VIEWER_LOG_KEY = 'secretsanta_viewers';
+
 interface Assignment {
   giver: string;
   receiver: string;
+}
+
+interface ViewerLogEntry {
+  name: string;
+  receiver: string;
+  viewedAt: string;
 }
 
 const ViewResults: React.FC = () => {
@@ -25,6 +33,23 @@ const ViewResults: React.FC = () => {
     }
   }, []);
 
+  const recordView = (assignment: Assignment) => {
+    try {
+      const stored = localStorage.getItem(VIEWER_LOG_KEY);
+      const parsed: ViewerLogEntry[] = stored ? JSON.parse(stored) : [];
+      const filtered = parsed.filter(
+        (entry) => entry.name.toLowerCase() !== assignment.giver.toLowerCase()
+      );
+      const updated: ViewerLogEntry[] = [
+        ...filtered,
+        { name: assignment.giver, receiver: assignment.receiver, viewedAt: new Date().toISOString() },
+      ];
+      localStorage.setItem(VIEWER_LOG_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error("Failed to record viewer", error);
+    }
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const found = assignments.find(
@@ -32,6 +57,10 @@ const ViewResults: React.FC = () => {
     );
     setMyAssignment(found || null);
     setSearched(true);
+
+    if (found) {
+      recordView(found);
+    }
   };
 
   return (
@@ -49,14 +78,16 @@ const ViewResults: React.FC = () => {
         </Button>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-christmas-red rounded-full mb-4 shadow-lg">
-            <Gift className="w-10 h-10 text-christmas-snow" />
-          </div>
+          <img
+            src="/Stance-christmas-logo.png"
+            alt="Stance's Secret Santa"
+            className="w-24 h-24 rounded-full object-cover mb-4 shadow-lg mx-auto"
+          />
           <h1 className="text-4xl font-display font-bold text-christmas-snow mb-2">
-            Find Your Match
+            Stance&apos;s Secret Santa
           </h1>
           <p className="text-christmas-gold font-medium">
-            🎁 Who are you buying a gift for? 🎁
+            🎁 Find your match and keep it secret 🎁
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Gift, Users, Shuffle, Plus, Sparkles, TreePine, ChevronDown, LogOut } from "lucide-react";
+import { Gift, Users, Shuffle, Plus, Sparkles, TreePine, ChevronDown, LogOut, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Snowfall } from "@/components/Snowfall";
@@ -17,6 +17,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+const VIEWER_LOG_KEY = "secretsanta_viewers";
+
 interface Exclusion {
   giver: string;
   receiver: string;
@@ -27,14 +29,25 @@ interface Assignment {
   receiver: string;
 }
 
+interface ViewerLogEntry {
+  name: string;
+  receiver: string;
+  viewedAt: string;
+}
+
 const Index = () => {
   const [participants, setParticipants] = useState<string[]>([]);
   const [newName, setNewName] = useState("");
   const [exclusions, setExclusions] = useState<Exclusion[]>([]);
   const [assignments, setAssignments] = useState<Assignment[] | null>(null);
   const [showExclusions, setShowExclusions] = useState(false);
+  const [viewerLog, setViewerLog] = useState<ViewerLogEntry[]>([]);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const { toast } = useToast();
-  const { isAdmin, isAuthenticated, logout } = useAuth();
+  const { isAdmin, isAuthenticated, logout, changePassword } = useAuth();
   const navigate = useNavigate();
 
   // Redirect to login if not authenticated
@@ -54,7 +67,21 @@ const Index = () => {
     if (storedParticipants) {
       setParticipants(JSON.parse(storedParticipants));
     }
+
+    const storedViewerLog = localStorage.getItem(VIEWER_LOG_KEY);
+    if (storedViewerLog) {
+      try {
+        setViewerLog(JSON.parse(storedViewerLog));
+      } catch (error) {
+        console.error("Failed to parse viewer log", error);
+      }
+    }
   }, []);
+
+  const clearViewerLog = () => {
+    setViewerLog([]);
+    localStorage.removeItem(VIEWER_LOG_KEY);
+  };
 
   const addParticipant = () => {
     const name = newName.trim();
@@ -75,6 +102,7 @@ const Index = () => {
     setNewName("");
     setAssignments(null);
     localStorage.removeItem('secretsanta_assignments');
+    clearViewerLog();
   };
 
   const removeParticipant = (index: number) => {
@@ -85,6 +113,7 @@ const Index = () => {
     setExclusions(exclusions.filter((e) => e.giver !== name && e.receiver !== name));
     setAssignments(null);
     localStorage.removeItem('secretsanta_assignments');
+    clearViewerLog();
   };
 
   const handleCSVUpload = (names: string[]) => {
@@ -93,6 +122,7 @@ const Index = () => {
     setExclusions([]);
     setAssignments(null);
     localStorage.removeItem('secretsanta_assignments');
+    clearViewerLog();
   };
 
   const handleGenerate = () => {
@@ -116,6 +146,7 @@ const Index = () => {
       return;
     }
 
+    clearViewerLog();
     setAssignments(result);
     localStorage.setItem('secretsanta_assignments', JSON.stringify(result));
     toast({
@@ -127,12 +158,60 @@ const Index = () => {
   const handleReset = () => {
     setAssignments(null);
     localStorage.removeItem('secretsanta_assignments');
+    clearViewerLog();
   };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const handlePasswordUpdate = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!currentPassword.trim() || !newPassword.trim()) {
+      toast({
+        title: "Password required",
+        description: "Please enter your current and new password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords do not match",
+        description: "Confirm password must match the new password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setTimeout(() => {
+      const success = changePassword(currentPassword, newPassword);
+      if (success) {
+        toast({
+          title: "Password updated",
+          description: "Your admin password has been changed.",
+        });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast({
+          title: "Invalid current password",
+          description: "Please verify your current password and try again.",
+          variant: "destructive",
+        });
+      }
+      setIsUpdatingPassword(false);
+    }, 300);
+  };
+
+  const sortedViewerLog = [...viewerLog].sort(
+    (a, b) => new Date(b.viewedAt).getTime() - new Date(a.viewedAt).getTime()
+  );
 
   if (!isAuthenticated) {
     return null;
@@ -160,12 +239,12 @@ const Index = () => {
           </div>
           
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold text-foreground mb-4">
-            Secret Santa
+            Stance&apos;s Secret Santa
             <span className="block text-primary">Generator</span>
           </h1>
           
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            {isAdmin ? "Admin Dashboard - Manage participants and generate assignments" : "View your Secret Santa assignment"}
+            {isAdmin ? "Admin Dashboard - Manage participants, security, and visibility" : "View your Secret Santa assignment"}
           </p>
           
           {isAdmin && (
@@ -290,6 +369,85 @@ const Index = () => {
             </Collapsible>
           )}
 
+          {/* Admin password management */}
+          {isAdmin && (
+            <section className="bg-card rounded-3xl shadow-festive p-6 sm:p-8 border border-border/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <Shield className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-display font-semibold text-foreground">
+                    Admin Security
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Update the admin password at any time
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handlePasswordUpdate} className="grid gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Current password
+                  </label>
+                  <Input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    placeholder="Enter current admin password"
+                    className="bg-background"
+                  />
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2 md:gap-4">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      New password
+                    </label>
+                    <Input
+                      type="password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      placeholder="Enter a new password"
+                      className="bg-background"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Confirm new password
+                    </label>
+                    <Input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      placeholder="Re-enter the new password"
+                      className="bg-background"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Changing the password keeps your admin tools secure.
+                  </p>
+                  <Button
+                    type="submit"
+                    disabled={
+                      isUpdatingPassword ||
+                      !currentPassword ||
+                      !newPassword ||
+                      !confirmPassword
+                    }
+                    className="sm:w-fit"
+                  >
+                    {isUpdatingPassword ? "Updating..." : "Update password"}
+                  </Button>
+                </div>
+              </form>
+            </section>
+          )}
+
           {/* Generate Button - Admin Only */}
           {isAdmin && participants.length >= 2 && !assignments && (
             <div className="flex justify-center">
@@ -348,6 +506,57 @@ const Index = () => {
               <p className="text-muted-foreground">
                 The admin hasn't generated the Secret Santa assignments yet. Check back soon!
               </p>
+            </section>
+          )}
+
+          {/* Viewer log - Admin Only */}
+          {isAdmin && (
+            <section className="bg-card rounded-3xl shadow-festive p-6 sm:p-8 border border-border/50">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary/10">
+                    <Sparkles className="h-5 w-5 text-secondary" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-display font-semibold text-foreground">
+                      Viewer Activity
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      See who has revealed their Secret Santa assignment
+                    </p>
+                  </div>
+                </div>
+                {sortedViewerLog.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={clearViewerLog}>
+                    Clear log
+                  </Button>
+                )}
+              </div>
+
+              {sortedViewerLog.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No one has viewed their assignment yet.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {sortedViewerLog.map((entry) => (
+                    <div
+                      key={`${entry.name}-${entry.viewedAt}`}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-2xl border border-border/50 bg-muted/40 px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-foreground font-medium">{entry.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Viewed: buying for {entry.receiver}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(entry.viewedAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
         </div>
