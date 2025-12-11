@@ -5,19 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Gift, Search, ArrowLeft, PartyPopper } from 'lucide-react';
 import { Snowfall } from '@/components/Snowfall';
+import { database, Assignment, ViewerLogEntry } from '@/lib/database';
 
-const VIEWER_LOG_KEY = 'secretsanta_viewers';
-
-interface Assignment {
-  giver: string;
-  receiver: string;
-}
-
-interface ViewerLogEntry {
-  name: string;
-  receiver: string;
-  viewedAt: string;
-}
 
 const ViewResults: React.FC = () => {
   const [name, setName] = useState('');
@@ -27,30 +16,23 @@ const ViewResults: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const stored = localStorage.getItem('secretsanta_assignments');
-    if (stored) {
-      setAssignments(JSON.parse(stored));
-    }
+    const loadAssignments = async () => {
+      const data = await database.getAssignments();
+      setAssignments(data);
+    };
+    loadAssignments();
   }, []);
 
-  const recordView = (assignment: Assignment) => {
-    try {
-      const stored = localStorage.getItem(VIEWER_LOG_KEY);
-      const parsed: ViewerLogEntry[] = stored ? JSON.parse(stored) : [];
-      const filtered = parsed.filter(
-        (entry) => entry.name.toLowerCase() !== assignment.giver.toLowerCase()
-      );
-      const updated: ViewerLogEntry[] = [
-        ...filtered,
-        { name: assignment.giver, receiver: assignment.receiver, viewedAt: new Date().toISOString() },
-      ];
-      localStorage.setItem(VIEWER_LOG_KEY, JSON.stringify(updated));
-    } catch (error) {
-      console.error("Failed to record viewer", error);
-    }
+  const recordView = async (assignment: Assignment) => {
+    const entry: ViewerLogEntry = {
+      name: assignment.giver,
+      receiver: assignment.receiver,
+      viewedAt: new Date().toISOString(),
+    };
+    await database.addViewerLogEntry(entry);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const found = assignments.find(
       (a) => a.giver.toLowerCase() === name.toLowerCase().trim()
@@ -59,7 +41,7 @@ const ViewResults: React.FC = () => {
     setSearched(true);
 
     if (found) {
-      recordView(found);
+      await recordView(found);
     }
   };
 
@@ -102,62 +84,60 @@ const ViewResults: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {assignments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Gift className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No assignments have been generated yet.</p>
-                <p className="text-sm mt-2">Please wait for the admin to create the Secret Santa draw.</p>
+            {assignments.length === 0 && (
+              <div className="text-center py-4 text-muted-foreground mb-4">
+                <Gift className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No assignments have been generated yet.</p>
+                <p className="text-xs mt-1">Please wait for the admin to create the Secret Santa draw.</p>
               </div>
-            ) : (
-              <>
-                <form onSubmit={handleSearch} className="space-y-4">
-                  <Input
-                    type="text"
-                    placeholder="Enter your name"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      setSearched(false);
-                    }}
-                    className="border-christmas-green/30 focus:border-christmas-red"
-                  />
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    variant="christmas"
-                    disabled={!name.trim()}
-                  >
-                    <Search className="w-4 h-4 mr-2" />
-                    Find My Assignment
-                  </Button>
-                </form>
+            )}
+            
+            <form onSubmit={handleSearch} className="space-y-4">
+              <Input
+                type="text"
+                placeholder="Enter your name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setSearched(false);
+                }}
+                className="border-christmas-green/30 focus:border-christmas-red"
+              />
+              <Button 
+                type="submit" 
+                className="w-full" 
+                variant="christmas"
+                disabled={!name.trim() || assignments.length === 0}
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Find My Assignment
+              </Button>
+            </form>
 
-                {searched && (
-                  <div className="mt-6">
-                    {myAssignment ? (
-                      <div className="text-center p-6 bg-gradient-to-br from-christmas-green/10 to-christmas-red/10 rounded-lg border border-christmas-gold/30">
-                        <PartyPopper className="w-12 h-12 mx-auto mb-4 text-christmas-gold" />
-                        <p className="text-sm text-muted-foreground mb-2">You are buying a gift for:</p>
-                        <p className="text-3xl font-display font-bold text-christmas-red">
-                          {myAssignment.receiver}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-4">
-                          🤫 Keep it a secret!
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center p-6 bg-destructive/10 rounded-lg border border-destructive/30">
-                        <p className="text-destructive font-medium">
-                          Name not found in the participant list.
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Please check the spelling and try again.
-                        </p>
-                      </div>
-                    )}
+            {searched && (
+              <div className="mt-6">
+                {myAssignment ? (
+                  <div className="text-center p-6 bg-gradient-to-br from-christmas-green/10 to-christmas-red/10 rounded-lg border border-christmas-gold/30">
+                    <PartyPopper className="w-12 h-12 mx-auto mb-4 text-christmas-gold" />
+                    <p className="text-sm text-muted-foreground mb-2">You are buying a gift for:</p>
+                    <p className="text-3xl font-display font-bold text-christmas-red">
+                      {myAssignment.receiver}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-4">
+                      🤫 Keep it a secret!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center p-6 bg-destructive/10 rounded-lg border border-destructive/30">
+                    <p className="text-destructive font-medium">
+                      Name not found in the participant list.
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Please check the spelling and try again.
+                    </p>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </CardContent>
         </Card>

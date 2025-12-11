@@ -11,6 +11,7 @@ import CSVUpload from "@/components/CSVUpload";
 import { generateSecretSanta } from "@/lib/secretSanta";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { database } from "@/lib/database";
 import {
   Collapsible,
   CollapsibleContent,
@@ -57,33 +58,35 @@ const Index = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  // Load saved assignments
+  // Load saved assignments from Supabase
   useEffect(() => {
-    const stored = localStorage.getItem('secretsanta_assignments');
-    if (stored) {
-      setAssignments(JSON.parse(stored));
-    }
-    const storedParticipants = localStorage.getItem('secretsanta_participants');
-    if (storedParticipants) {
-      setParticipants(JSON.parse(storedParticipants));
-    }
-
-    const storedViewerLog = localStorage.getItem(VIEWER_LOG_KEY);
-    if (storedViewerLog) {
-      try {
-        setViewerLog(JSON.parse(storedViewerLog));
-      } catch (error) {
-        console.error("Failed to parse viewer log", error);
+    const loadData = async () => {
+      const [assignmentsData, participantsData, viewerLogData] = await Promise.all([
+        database.getAssignments(),
+        database.getParticipants(),
+        database.getViewerLog(),
+      ]);
+      
+      if (assignmentsData.length > 0) {
+        setAssignments(assignmentsData);
       }
-    }
+      if (participantsData.length > 0) {
+        setParticipants(participantsData);
+      }
+      if (viewerLogData.length > 0) {
+        setViewerLog(viewerLogData);
+      }
+    };
+    
+    loadData();
   }, []);
 
-  const clearViewerLog = () => {
+  const clearViewerLog = async () => {
     setViewerLog([]);
-    localStorage.removeItem(VIEWER_LOG_KEY);
+    await database.clearViewerLog();
   };
 
-  const addParticipant = () => {
+  const addParticipant = async () => {
     const name = newName.trim();
     if (!name) return;
     
@@ -98,34 +101,34 @@ const Index = () => {
 
     const newParticipants = [...participants, name];
     setParticipants(newParticipants);
-    localStorage.setItem('secretsanta_participants', JSON.stringify(newParticipants));
+    await database.saveParticipants(newParticipants);
     setNewName("");
     setAssignments(null);
-    localStorage.removeItem('secretsanta_assignments');
-    clearViewerLog();
+    await database.clearAssignments();
+    await clearViewerLog();
   };
 
-  const removeParticipant = (index: number) => {
+  const removeParticipant = async (index: number) => {
     const name = participants[index];
     const newParticipants = participants.filter((_, i) => i !== index);
     setParticipants(newParticipants);
-    localStorage.setItem('secretsanta_participants', JSON.stringify(newParticipants));
+    await database.saveParticipants(newParticipants);
     setExclusions(exclusions.filter((e) => e.giver !== name && e.receiver !== name));
     setAssignments(null);
-    localStorage.removeItem('secretsanta_assignments');
-    clearViewerLog();
+    await database.clearAssignments();
+    await clearViewerLog();
   };
 
-  const handleCSVUpload = (names: string[]) => {
+  const handleCSVUpload = async (names: string[]) => {
     setParticipants(names);
-    localStorage.setItem('secretsanta_participants', JSON.stringify(names));
+    await database.saveParticipants(names);
     setExclusions([]);
     setAssignments(null);
-    localStorage.removeItem('secretsanta_assignments');
-    clearViewerLog();
+    await database.clearAssignments();
+    await clearViewerLog();
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (participants.length < 2) {
       toast({
         title: "Need more participants",
@@ -146,19 +149,27 @@ const Index = () => {
       return;
     }
 
-    clearViewerLog();
+    await clearViewerLog();
     setAssignments(result);
-    localStorage.setItem('secretsanta_assignments', JSON.stringify(result));
-    toast({
-      title: "🎅 Secret Santa Generated!",
-      description: "Click reveal to see each person's assignment.",
-    });
+    const success = await database.saveAssignments(result);
+    if (success) {
+      toast({
+        title: "🎅 Secret Santa Generated!",
+        description: "Click reveal to see each person's assignment.",
+      });
+    } else {
+      toast({
+        title: "Error saving assignments",
+        description: "Assignments were generated but couldn't be saved. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setAssignments(null);
-    localStorage.removeItem('secretsanta_assignments');
-    clearViewerLog();
+    await database.clearAssignments();
+    await clearViewerLog();
   };
 
   const handleLogout = () => {
