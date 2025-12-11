@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { Gift, Users, Shuffle, Plus, Sparkles, TreePine, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Gift, Users, Shuffle, Plus, Sparkles, TreePine, ChevronDown, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Snowfall } from "@/components/Snowfall";
 import { ParticipantCard } from "@/components/ParticipantCard";
 import { ExclusionSelector } from "@/components/ExclusionSelector";
 import { ResultCard } from "@/components/ResultCard";
+import CSVUpload from "@/components/CSVUpload";
 import { generateSecretSanta } from "@/lib/secretSanta";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Collapsible,
   CollapsibleContent,
@@ -31,6 +34,27 @@ const Index = () => {
   const [assignments, setAssignments] = useState<Assignment[] | null>(null);
   const [showExclusions, setShowExclusions] = useState(false);
   const { toast } = useToast();
+  const { isAdmin, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Load saved assignments
+  useEffect(() => {
+    const stored = localStorage.getItem('secretsanta_assignments');
+    if (stored) {
+      setAssignments(JSON.parse(stored));
+    }
+    const storedParticipants = localStorage.getItem('secretsanta_participants');
+    if (storedParticipants) {
+      setParticipants(JSON.parse(storedParticipants));
+    }
+  }, []);
 
   const addParticipant = () => {
     const name = newName.trim();
@@ -45,16 +69,30 @@ const Index = () => {
       return;
     }
 
-    setParticipants([...participants, name]);
+    const newParticipants = [...participants, name];
+    setParticipants(newParticipants);
+    localStorage.setItem('secretsanta_participants', JSON.stringify(newParticipants));
     setNewName("");
     setAssignments(null);
+    localStorage.removeItem('secretsanta_assignments');
   };
 
   const removeParticipant = (index: number) => {
     const name = participants[index];
-    setParticipants(participants.filter((_, i) => i !== index));
+    const newParticipants = participants.filter((_, i) => i !== index);
+    setParticipants(newParticipants);
+    localStorage.setItem('secretsanta_participants', JSON.stringify(newParticipants));
     setExclusions(exclusions.filter((e) => e.giver !== name && e.receiver !== name));
     setAssignments(null);
+    localStorage.removeItem('secretsanta_assignments');
+  };
+
+  const handleCSVUpload = (names: string[]) => {
+    setParticipants(names);
+    localStorage.setItem('secretsanta_participants', JSON.stringify(names));
+    setExclusions([]);
+    setAssignments(null);
+    localStorage.removeItem('secretsanta_assignments');
   };
 
   const handleGenerate = () => {
@@ -79,6 +117,7 @@ const Index = () => {
     }
 
     setAssignments(result);
+    localStorage.setItem('secretsanta_assignments', JSON.stringify(result));
     toast({
       title: "🎅 Secret Santa Generated!",
       description: "Click reveal to see each person's assignment.",
@@ -87,11 +126,29 @@ const Index = () => {
 
   const handleReset = () => {
     setAssignments(null);
+    localStorage.removeItem('secretsanta_assignments');
   };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-festive-subtle relative overflow-hidden">
       <Snowfall />
+      
+      {/* Header with logout */}
+      <div className="absolute top-4 right-4 z-20">
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+          <LogOut className="h-4 w-4 mr-2" />
+          Logout
+        </Button>
+      </div>
       
       {/* Hero Section */}
       <header className="relative z-10 pt-12 pb-8 px-4">
@@ -108,71 +165,93 @@ const Index = () => {
           </h1>
           
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Create magical gift exchanges with friends and family. 
-            Add names, set rules, and let the magic begin! ✨
+            {isAdmin ? "Admin Dashboard - Manage participants and generate assignments" : "View your Secret Santa assignment"}
           </p>
+          
+          {isAdmin && (
+            <span className="inline-block mt-4 px-4 py-1 bg-christmas-gold/20 text-christmas-gold rounded-full text-sm font-medium">
+              👑 Admin Mode
+            </span>
+          )}
         </div>
       </header>
 
       <main className="relative z-10 px-4 pb-16">
         <div className="max-w-2xl mx-auto space-y-8">
           
-          {/* Add Participants Section */}
-          <section className="bg-card rounded-3xl shadow-festive p-6 sm:p-8 border border-border/50">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
+          {/* CSV Upload Section - Admin Only */}
+          {isAdmin && (
+            <section className="bg-card rounded-3xl shadow-festive p-6 sm:p-8 border border-border/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-christmas-gold/10">
+                  <Users className="h-5 w-5 text-christmas-gold" />
+                </div>
+                <h2 className="text-xl font-display font-semibold text-foreground">
+                  Import Participants
+                </h2>
               </div>
-              <h2 className="text-xl font-display font-semibold text-foreground">
-                Add Participants
-              </h2>
-              {participants.length > 0 && (
-                <span className="ml-auto text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                  {participants.length} people
-                </span>
+              <CSVUpload onUpload={handleCSVUpload} />
+            </section>
+          )}
+
+          {/* Add Participants Section - Admin Only */}
+          {isAdmin && (
+            <section className="bg-card rounded-3xl shadow-festive p-6 sm:p-8 border border-border/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <h2 className="text-xl font-display font-semibold text-foreground">
+                  Add Participants
+                </h2>
+                {participants.length > 0 && (
+                  <span className="ml-auto text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                    {participants.length} people
+                  </span>
+                )}
+              </div>
+
+              <div className="flex gap-3 mb-6">
+                <Input
+                  placeholder="Enter a name..."
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addParticipant()}
+                  className="flex-1 h-12 bg-background"
+                />
+                <Button
+                  variant="festive"
+                  size="lg"
+                  onClick={addParticipant}
+                  disabled={!newName.trim()}
+                >
+                  <Plus className="h-5 w-5" />
+                  Add
+                </Button>
+              </div>
+
+              {participants.length > 0 ? (
+                <div className="grid gap-3">
+                  {participants.map((name, index) => (
+                    <ParticipantCard
+                      key={name}
+                      name={name}
+                      index={index}
+                      onRemove={() => removeParticipant(index)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Gift className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p>No participants yet. Upload a CSV or add names manually!</p>
+                </div>
               )}
-            </div>
+            </section>
+          )}
 
-            <div className="flex gap-3 mb-6">
-              <Input
-                placeholder="Enter a name..."
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addParticipant()}
-                className="flex-1 h-12 bg-background"
-              />
-              <Button
-                variant="festive"
-                size="lg"
-                onClick={addParticipant}
-                disabled={!newName.trim()}
-              >
-                <Plus className="h-5 w-5" />
-                Add
-              </Button>
-            </div>
-
-            {participants.length > 0 ? (
-              <div className="grid gap-3">
-                {participants.map((name, index) => (
-                  <ParticipantCard
-                    key={name}
-                    name={name}
-                    index={index}
-                    onRemove={() => removeParticipant(index)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Gift className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>No participants yet. Add some names to get started!</p>
-              </div>
-            )}
-          </section>
-
-          {/* Exclusions Section */}
-          {participants.length >= 2 && (
+          {/* Exclusions Section - Admin Only */}
+          {isAdmin && participants.length >= 2 && (
             <Collapsible open={showExclusions} onOpenChange={setShowExclusions}>
               <CollapsibleTrigger asChild>
                 <button className="w-full bg-card rounded-3xl shadow-md p-6 border border-border/50 flex items-center justify-between hover:shadow-lg transition-shadow">
@@ -211,8 +290,8 @@ const Index = () => {
             </Collapsible>
           )}
 
-          {/* Generate Button */}
-          {participants.length >= 2 && !assignments && (
+          {/* Generate Button - Admin Only */}
+          {isAdmin && participants.length >= 2 && !assignments && (
             <div className="flex justify-center">
               <Button
                 variant="gold"
@@ -226,7 +305,7 @@ const Index = () => {
             </div>
           )}
 
-          {/* Results Section */}
+          {/* Results Section - All Users */}
           {assignments && (
             <section className="space-y-6 animate-fade-in">
               <div className="text-center">
@@ -234,7 +313,7 @@ const Index = () => {
                   🎄 Assignments Ready!
                 </h2>
                 <p className="text-muted-foreground">
-                  Click reveal on each card to see the assignment
+                  {isAdmin ? "Click reveal on each card to see the assignment" : "Find your name and reveal your Secret Santa assignment"}
                 </p>
               </div>
 
@@ -249,11 +328,26 @@ const Index = () => {
                 ))}
               </div>
 
-              <div className="flex justify-center gap-4">
-                <Button variant="outline" onClick={handleReset}>
-                  Regenerate
-                </Button>
-              </div>
+              {isAdmin && (
+                <div className="flex justify-center gap-4">
+                  <Button variant="outline" onClick={handleReset}>
+                    Regenerate
+                  </Button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* No assignments message for non-admin */}
+          {!isAdmin && !assignments && (
+            <section className="bg-card rounded-3xl shadow-festive p-8 border border-border/50 text-center">
+              <Gift className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+              <h2 className="text-xl font-display font-semibold text-foreground mb-2">
+                No Assignments Yet
+              </h2>
+              <p className="text-muted-foreground">
+                The admin hasn't generated the Secret Santa assignments yet. Check back soon!
+              </p>
             </section>
           )}
         </div>
