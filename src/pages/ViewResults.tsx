@@ -223,7 +223,15 @@ const ViewResults: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-christmas-dark to-christmas-green flex items-center justify-center p-4 relative overflow-hidden">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/fix-flex-feel-festive.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
       <Snowfall />
       
       <div className="w-full max-w-md z-10">

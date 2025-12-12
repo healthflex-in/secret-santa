@@ -54,7 +54,15 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-christmas-dark to-christmas-green flex items-center justify-center p-4 relative overflow-hidden">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/fix-flex-feel-festive.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
       <Snowfall />
       
       {/* Admin button in top right corner */}
@@ -129,7 +137,7 @@ const Login: React.FC = () => {
         </Card>
 
         <p className="text-center text-christmas-snow/60 text-sm mt-6">
-          Viewers can only see their assigned Secret Santa
+          Viewers can only see their assigned recipient
         </p>
       </div>
     </div>
