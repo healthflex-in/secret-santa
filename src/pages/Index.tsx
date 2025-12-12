@@ -311,7 +311,7 @@ const Index = () => {
           </h1>
           
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            {isAdmin ? "Admin Dashboard - Manage participants, security, and visibility" : "View your Secret Santa"}
+            {isAdmin ? "Admin Dashboard - Manage participants, security, and visibility" : "View Your Gift Recipient"}
           </p>
           
           {isAdmin && (
@@ -671,7 +671,7 @@ const Index = () => {
                   🎄 Secret Santas Ready!
                 </h2>
                 <p className="text-muted-foreground">
-                  {isAdmin ? "Click reveal on each card to see the Secret Santa pair" : "Find your name and reveal your Secret Santa"}
+                  {isAdmin ? "Click reveal on each card to see the Secret Santa pair" : "Find your name and see who you're gifting"}
                 </p>
               </div>
 

@@ -246,7 +246,7 @@ const ViewResults: React.FC = () => {
             Stance&apos;s Secret Santa
           </h1>
           <p className="text-christmas-gold font-medium">
-            🎁 Discover your Secret Santa 🎁
+            🎁 See Who You're Gifting 🎁
           </p>
         </div>
 
@@ -254,14 +254,14 @@ const ViewResults: React.FC = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-christmas-dark flex items-center justify-center gap-2">
               {user ? <Mail className="w-5 h-5" /> : <Search className="w-5 h-5" />}
-              {user ? 'Your Secret Santa' : 'Login to View Your Santa'}
+              {user ? 'Your Gift Recipient' : 'Login to View Your Recipient'}
             </CardTitle>
             <CardDescription>
               {user 
                 ? isAuthorized 
                   ? `Logged in as ${user.email}` 
                   : 'Your email is not authorized'
-                : 'Sign in with Google to view your Secret Santa'
+                : 'Sign in with Google to see who you're gifting'
               }
             </CardDescription>
           </CardHeader>
