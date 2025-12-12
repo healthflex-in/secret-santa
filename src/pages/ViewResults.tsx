@@ -261,7 +261,7 @@ const ViewResults: React.FC = () => {
                 ? isAuthorized 
                   ? `Logged in as ${user.email}` 
                   : 'Your email is not authorized'
-                : 'Sign in with Google to see who you're gifting'
+                : "Sign in with Google to see who you're gifting"
               }
             </CardDescription>
           </CardHeader>
