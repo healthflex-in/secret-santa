@@ -136,11 +136,36 @@ const Index = () => {
     await clearViewerLog();
   };
 
+  const handleCSVUploadWithEmails = async (data: { name: string; email: string }[]) => {
+    // Extract names for participants
+    const names = data.map(item => item.name);
+    setParticipants(names);
+    await database.saveParticipants(names);
+    
+    // Save authorized emails
+    const success = await database.bulkAddAuthorizedEmails(data);
+    if (success) {
+      // Reload authorized emails to update the UI
+      const updatedEmails = await database.getAuthorizedEmails();
+      setAuthorizedEmails(updatedEmails);
+    }
+    
+    setExclusions([]);
+    setAssignments(null);
+    await database.clearAssignments();
+    await clearViewerLog();
+    
+    toast({
+      title: "CSV Uploaded!",
+      description: `Successfully loaded ${names.length} participants and authorized emails.`,
+    });
+  };
+
   const handleGenerate = async () => {
     if (participants.length < 2) {
       toast({
         title: "Need more participants",
-        description: "Add at least 2 people to generate Secret Santa assignments.",
+        description: "Add at least 2 people to generate Secret Santa pairs.",
         variant: "destructive",
       });
       return;
@@ -150,7 +175,7 @@ const Index = () => {
     
     if (!result) {
       toast({
-        title: "Cannot generate assignments",
+        title: "Cannot generate Secret Santa pairs",
         description: "The exclusion rules make it impossible to assign everyone. Try removing some rules.",
         variant: "destructive",
       });
@@ -163,12 +188,12 @@ const Index = () => {
     if (success) {
       toast({
         title: "🎅 Secret Santa Generated!",
-        description: "Click reveal to see each person's assignment.",
+        description: "Click reveal to see each person's Secret Santa.",
       });
     } else {
       toast({
-        title: "Error saving assignments",
-        description: "Assignments were generated but couldn't be saved. Please try again.",
+        title: "Error saving Secret Santa pairs",
+        description: "Secret Santa pairs were generated but couldn't be saved. Please try again.",
         variant: "destructive",
       });
     }
@@ -270,7 +295,7 @@ const Index = () => {
           </h1>
           
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            {isAdmin ? "Admin Dashboard - Manage participants, security, and visibility" : "View your Secret Santa assignment"}
+            {isAdmin ? "Admin Dashboard - Manage participants, security, and visibility" : "View your Secret Santa"}
           </p>
           
           {isAdmin && (
@@ -295,7 +320,7 @@ const Index = () => {
                   Import Participants
                 </h2>
               </div>
-              <CSVUpload onUpload={handleCSVUpload} />
+              <CSVUpload onUpload={handleCSVUpload} onUploadWithEmails={handleCSVUploadWithEmails} />
             </section>
           )}
 
@@ -627,10 +652,10 @@ const Index = () => {
             <section className="space-y-6 animate-fade-in">
               <div className="text-center">
                 <h2 className="text-2xl font-display font-bold text-foreground mb-2">
-                  🎄 Assignments Ready!
+                  🎄 Secret Santas Ready!
                 </h2>
                 <p className="text-muted-foreground">
-                  {isAdmin ? "Click reveal on each card to see the assignment" : "Find your name and reveal your Secret Santa assignment"}
+                  {isAdmin ? "Click reveal on each card to see the Secret Santa pair" : "Find your name and reveal your Secret Santa"}
                 </p>
               </div>
 
@@ -659,11 +684,11 @@ const Index = () => {
           {!isAdmin && !assignments && (
             <section className="bg-card rounded-3xl shadow-festive p-8 border border-border/50 text-center">
               <Gift className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-              <h2 className="text-xl font-display font-semibold text-foreground mb-2">
-                No Assignments Yet
+                <h2 className="text-xl font-display font-semibold text-foreground mb-2">
+                No Secret Santas Yet
               </h2>
               <p className="text-muted-foreground">
-                The admin hasn't generated the Secret Santa assignments yet. Check back soon!
+                The admin hasn't generated the Secret Santa pairs yet. Check back soon!
               </p>
             </section>
           )}
@@ -681,7 +706,7 @@ const Index = () => {
                       Viewer Activity
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      See who has revealed their Secret Santa assignment
+                      See who has revealed their Secret Santa
                     </p>
                   </div>
                 </div>

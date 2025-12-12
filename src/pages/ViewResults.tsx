@@ -36,29 +36,75 @@ const ViewResults: React.FC = () => {
   };
 
   useEffect(() => {
-    // Handle OAuth callback - check for hash fragments from redirect
+    // Handle OAuth callback - Supabase automatically processes hash fragments
     const handleAuthCallback = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
-        setIsLoading(false);
-        return;
-      }
+      try {
+        // Check for OAuth errors in URL
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const error = hashParams.get('error');
+        const errorDescription = hashParams.get('error_description');
+        
+        if (error) {
+          console.error('OAuth error:', error, errorDescription);
+          toast({
+            title: "Authentication error",
+            description: error === 'access_denied' 
+              ? "You cancelled the sign in." 
+              : errorDescription || "An error occurred during sign in.",
+            variant: "destructive",
+          });
+          // Clean up the URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setIsLoading(false);
+          return;
+        }
 
-      if (session?.user) {
-        setUser(session.user);
-        await checkEmailAuthorization(session.user.email || '');
+        // Supabase automatically handles the hash fragments and creates the session
+        // Get the session after a brief delay to allow Supabase to process
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+          if (sessionError.message?.includes('session')) {
+            toast({
+              title: "Session error",
+              description: "Please try signing in again.",
+              variant: "destructive",
+            });
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          setUser(session.user);
+          await checkEmailAuthorization(session.user.email || '');
+        } else {
+          // No session found - user is not logged in
+          setUser(null);
+        }
+      } catch (error: any) {
+        console.error('Error in auth callback:', error);
+        toast({
+          title: "Authentication error",
+          description: error.message || "An error occurred. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     handleAuthCallback();
 
-    // Listen for auth changes
+    // Listen for auth changes (this handles OAuth callbacks automatically)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user);
         await checkEmailAuthorization(session.user.email || '');
@@ -67,6 +113,8 @@ const ViewResults: React.FC = () => {
         setIsAuthorized(false);
         setUserName(null);
         setMyAssignment(null);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        setUser(session.user);
       }
       setIsLoading(false);
     });
@@ -198,7 +246,7 @@ const ViewResults: React.FC = () => {
             Stance&apos;s Secret Santa
           </h1>
           <p className="text-christmas-gold font-medium">
-            🎁 Find your match and keep it secret 🎁
+            🎁 Discover your Secret Santa 🎁
           </p>
         </div>
 
@@ -206,14 +254,14 @@ const ViewResults: React.FC = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-christmas-dark flex items-center justify-center gap-2">
               {user ? <Mail className="w-5 h-5" /> : <Search className="w-5 h-5" />}
-              {user ? 'Your Secret Santa' : 'Login to View Your Assignment'}
+              {user ? 'Your Secret Santa' : 'Login to View Your Santa'}
             </CardTitle>
             <CardDescription>
               {user 
                 ? isAuthorized 
                   ? `Logged in as ${user.email}` 
                   : 'Your email is not authorized'
-                : 'Sign in with Google to view your assignment'
+                : 'Sign in with Google to view your Secret Santa'
               }
             </CardDescription>
           </CardHeader>
@@ -225,7 +273,7 @@ const ViewResults: React.FC = () => {
             ) : assignments.length === 0 ? (
               <div className="text-center py-4 text-muted-foreground mb-4">
                 <Gift className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No assignments have been generated yet.</p>
+                <p className="text-sm">No Secret Santa pairs have been generated yet.</p>
                 <p className="text-xs mt-1">Please wait for the admin to create the Secret Santa draw.</p>
               </div>
             ) : user && isAuthorized ? (
@@ -244,7 +292,7 @@ const ViewResults: React.FC = () => {
                 ) : (
                   <div className="text-center p-6 bg-muted/10 rounded-lg border border-muted/30">
                     <p className="text-muted-foreground">
-                      No assignment found for {userName}. Please contact the admin.
+                      No Secret Santa found for {userName}. Please contact the admin.
                     </p>
                   </div>
                 )}

@@ -76,6 +76,19 @@ To enable Google authentication:
 2. Make sure this matches exactly in your Google Cloud Console
 3. Test the login by clicking "Sign in with Google" in your app
 
+### Step 4: Customize OAuth Consent Screen (Change "Continue to" message)
+
+To change what users see when signing in (e.g., show "hohoho" instead of the Supabase URL):
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Navigate to **APIs & Services** → **OAuth consent screen**
+3. Update the **App name** to your desired name (e.g., "hohoho" or "Secret Santa - hohoho")
+4. Update **User support email** and **Developer contact information**
+5. Click **Save and Continue**
+6. The new name will appear when users sign in with Google
+
+**Note:** This changes the display name in the OAuth flow, not the actual Supabase URL. The Supabase project URL (`xzhrepiwlthlhetzjygj.supabase.co`) cannot be changed, but users will see your custom app name instead.
+
 ### Troubleshooting
 
 - **Error: "provider is not enabled"**: Make sure you toggled "Enable Google provider" in Supabase
