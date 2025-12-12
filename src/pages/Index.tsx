@@ -137,28 +137,44 @@ const Index = () => {
   };
 
   const handleCSVUploadWithEmails = async (data: { name: string; email: string }[]) => {
-    // Extract names for participants
-    const names = data.map(item => item.name);
-    setParticipants(names);
-    await database.saveParticipants(names);
-    
-    // Save authorized emails
-    const success = await database.bulkAddAuthorizedEmails(data);
-    if (success) {
-      // Reload authorized emails to update the UI
-      const updatedEmails = await database.getAuthorizedEmails();
-      setAuthorizedEmails(updatedEmails);
+    try {
+      // Extract names for participants (only unique names)
+      const names = [...new Set(data.map(item => item.name.trim()))].filter(Boolean);
+      
+      // Save participants
+      setParticipants(names);
+      await database.saveParticipants(names);
+      
+      // Save authorized emails (with their corresponding names)
+      const success = await database.bulkAddAuthorizedEmails(data);
+      if (success) {
+        // Reload authorized emails to update the UI
+        const updatedEmails = await database.getAuthorizedEmails();
+        setAuthorizedEmails(updatedEmails);
+      } else {
+        toast({
+          title: "Warning",
+          description: "Participants were saved, but some emails may not have been authorized. Please check the Authorized Emails section.",
+          variant: "destructive",
+        });
+      }
+      
+      setExclusions([]);
+      setAssignments(null);
+      await database.clearAssignments();
+      await clearViewerLog();
+      
+      toast({
+        title: "CSV Uploaded Successfully!",
+        description: `Added ${names.length} participants and ${data.length} authorized emails.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload Error",
+        description: error.message || "Failed to process CSV file. Please try again.",
+        variant: "destructive",
+      });
     }
-    
-    setExclusions([]);
-    setAssignments(null);
-    await database.clearAssignments();
-    await clearViewerLog();
-    
-    toast({
-      title: "CSV Uploaded!",
-      description: `Successfully loaded ${names.length} participants and authorized emails.`,
-    });
   };
 
   const handleGenerate = async () => {

@@ -90,19 +90,16 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onUpload, onUploadWithEmails }) =
         }
 
         onUploadWithEmails(data);
-        toast({
-          title: "CSV Uploaded!",
-          description: `Successfully loaded ${data.length} participants with emails.`,
-        });
+        // Don't show toast here - the parent component (Index.tsx) will show the success message
       } else {
-        // Fallback to old behavior - just names
+        // Fallback to old behavior - just names (when email column is not found)
         const names: string[] = [];
 
         lines.slice(1).forEach((line) => {
           // Handle both single column and multi-column CSV
-          const cells = line.split(',');
+          const cells = parseCSVLine(line);
           cells.forEach((cell) => {
-            const name = cell.trim().replace(/^["']|["']$/g, ''); // Remove quotes
+            const name = cell.replace(/^["']|["']$/g, '').trim(); // Remove quotes
             if (name && name.length > 0 && !name.toLowerCase().includes('@')) {
               names.push(name);
             }
@@ -115,7 +112,7 @@ const CSVUpload: React.FC<CSVUploadProps> = ({ onUpload, onUploadWithEmails }) =
         if (uniqueNames.length < 2) {
           toast({
             title: "Not Enough Names",
-            description: "Please upload a CSV with at least 2 participants.",
+            description: "Please upload a CSV with at least 2 participants. For email authorization, include both NAMES and Email columns.",
             variant: "destructive",
           });
           return;
